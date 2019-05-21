@@ -5,9 +5,10 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 from ftplib import all_errors as FTP_ERRORS
 
+# used to keep track of total number of companies within a text file
 totalCompanies = 0
 
-
+# create the sheet that will hold the information with the right format found on Vista Print
 def makeSpreadsheet():
     book = Workbook()
     company_sheet = book.active
@@ -42,7 +43,7 @@ def makeSpreadsheet():
 
     return book, company_sheet
 
-
+# export the necessary information to a XSLX file
 def exportToCSV(infoList, dest, fileName):
     global totalCompanies
     progress = 1
@@ -69,7 +70,8 @@ def exportToCSV(infoList, dest, fileName):
 
     return True
 
-
+# parse text information, each line contains all the information we need; however, also contains information we don't
+# need. This format can be found on Sunbiz's website.
 def parseLine(line):
     useRA_Name = True
     infoDict = {}
@@ -108,6 +110,7 @@ def parseLine(line):
     ra_zip5 = line[646:651]
     ra_zip4 = line[651:655]
 
+    # some lines are incomplete so make sure only to read as much as we are given
     if len(line) > 650:
         princ_title = line[655:659]
         princ_name_type = line[659]
@@ -115,7 +118,7 @@ def parseLine(line):
 
         useRA_Name = False
 
-
+    # use the RA name if it exists, other wise use the principle name
     if useRA_Name == True:
         if re.search("\\s{2,}", ra_name.strip()):
             splitName = re.split('\\s{2,}', ra_name.strip())
@@ -136,12 +139,14 @@ def parseLine(line):
             infoDict["firstName"] = tempName.strip()
             infoDict["lastName"] = ""
 
+    # add other information to the dictionary
     infoDict["companyName"] = cor_name.strip()
     infoDict["address"] = cor_mail_add_1.strip()
     infoDict["city"] = cor_mail_city.strip()
     infoDict["state"] = cor_mail_state.strip()
     infoDict["zip"] = cor_mail_zip.strip()
 
+    # make sure no first name and last name are left blank
     if infoDict["firstName"] == '' and infoDict['lastName'] == '':
         if re.search("\\s{2,}", ra_name.strip()):
             splitName = re.split('\\s{2,}', ra_name.strip())
@@ -154,7 +159,7 @@ def parseLine(line):
 
     return infoDict
 
-
+# read text file
 def readTextFile(newDest, key):
     index = 0
     global totalCompanies
@@ -169,14 +174,15 @@ def readTextFile(newDest, key):
         elif key.upper() in i:
             totalCompanies += 1
 
-
+    # go back to beginning of file
     file.seek(0)
 
+    # make sure the keyword exists in the file
     if totalCompanies == 0 and key != '':
         sg.Popup("Keyword not found :(")
         return None
 
-
+    # read and parse information line by line
     for line in file:
         if key == '':
             if len(line) < 500:
@@ -190,6 +196,7 @@ def readTextFile(newDest, key):
                 return None
             index +=1
         else:
+            # search for only the provided keyword
             if key.upper() in line:
                 if len(line) < 500:
                     line += next(file)
@@ -206,13 +213,14 @@ def readTextFile(newDest, key):
     file.close()
     return infoList
 
-
+# connect to ftp server and download requested text file
 def downloadTextFile(date, dest):
 
     path = "/public/doc/cor/"
     fileName = str(date).replace("-", "")
     fileName = fileName[0:8] + "c.txt"
 
+    # search for text file with certain date and download it
     with ftplib.FTP("ftp.dos.state.fl.us") as ftp:
         ftp.login()
         ftp.cwd(path)
@@ -227,7 +235,7 @@ def downloadTextFile(date, dest):
 
     return newDest, fileName
 
-
+# set up and run UI
 def runUI():
     global totalCompanies
     layout = [[sg.Text('Fetch Leads')],
@@ -239,6 +247,7 @@ def runUI():
 
     window = sg.Window('MULE 002', layout)
 
+    #keep UI open unless user closes it
     while True:
         event, values = window.Read()
         if event is None:
